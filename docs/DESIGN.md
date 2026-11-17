@@ -298,7 +298,9 @@ commented-out consumer service.
   folder) has a Kodi-style `album.nfo` with `<musicbrainzalbumid>` (Lidarr writes these), the
   plugin sets it as the items' `mb_albumid` when beets creates the import task: beets looks
   that release up and, on a strong match, skips the text search.
-- **beets config** also enables `musicbrainz` (autotagging), `chroma` and `edit`. `chroma`
+- **beets config** also enables `musicbrainz` (autotagging), `chroma`, `edit`, `inline` (the
+  disc prefix) and `lyrics` (LRCLIB, synced; stored in beets' database, so beetsfs embeds them
+  in the view files like any other tag). `chroma`
   matches by acoustic fingerprint (AcoustID): at import it decodes the first 120 s of every
   track with `fpcalc`, built in its own stage from Chromaprint and a minimal FFmpeg (audio
   decoders only), linked statically; both sources pinned by sha256.

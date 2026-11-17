@@ -2,7 +2,7 @@
 name = "beets-beetsfs"
 version = "0.1.0"
 requires-python = ">=3.10"
-dependencies = ["beets[chroma]>=2.14"]  # chroma: acoustic fingerprints (pyacoustid, runs fpcalc)
+dependencies = ["beets[chroma,lyrics]>=2.14"]  # chroma: fingerprints (pyacoustid, fpcalc); lyrics: LRCLIB (bs4)
 
 [dependency-groups]
 dev = ["pytest"]

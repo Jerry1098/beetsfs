@@ -114,6 +114,7 @@ t=$(py 'import sys; from mediafile import MediaFile; print(MediaFile(sys.argv[1]
 
 # acoustic fingerprints: the chroma plugin loads and its fpcalc runs in the image
 box beet fingerprint --help >/dev/null || fail "chroma plugin not loadable"
+box beet lyrics --help >/dev/null || fail "lyrics plugin not loadable"
 for f in tagged.mp3 tagged.flac plain.ogg; do
   box fpcalc -length 5 "/music/$f" | grep -q '^FINGERPRINT=' || fail "fpcalc does not fingerprint $f"
 done
