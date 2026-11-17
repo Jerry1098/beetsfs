@@ -12,12 +12,16 @@ RUN cargo build --release --locked
 FROM docker.io/library/ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db AS fpcalc
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential cmake xz-utils \
+      curl ca-certificates \
  && rm -rf /var/lib/apt/lists/*
-ADD --checksum=sha256:7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3 \
-    https://ffmpeg.org/releases/ffmpeg-8.1.3.tar.xz /src/
-ADD --checksum=sha256:d54ada62c16b2db396d3251ec54fc7a58909c163131a1cfcf7fa6407dbc14360 \
-    https://github.com/acoustid/chromaprint/releases/download/v1.6.2/chromaprint-1.6.2.tar.gz /src/
 WORKDIR /src
+# curl, not ADD: ffmpeg.org often resets connections, and ADD cannot retry
+RUN curl -fsSL --retry 8 --retry-all-errors -O https://ffmpeg.org/releases/ffmpeg-8.1.3.tar.xz \
+         -O https://github.com/acoustid/chromaprint/releases/download/v1.6.2/chromaprint-1.6.2.tar.gz \
+ && printf '%s\n' \
+      '7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3  ffmpeg-8.1.3.tar.xz' \
+      'd54ada62c16b2db396d3251ec54fc7a58909c163131a1cfcf7fa6407dbc14360  chromaprint-1.6.2.tar.gz' \
+    | sha256sum -c
 RUN tar -xf ffmpeg-8.1.3.tar.xz && cd ffmpeg-8.1.3 \
  && ./configure --prefix=/ff --enable-static --disable-shared --disable-programs --disable-doc \
       --disable-autodetect --disable-network --disable-x86asm --disable-everything \
