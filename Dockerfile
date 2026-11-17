@@ -16,7 +16,7 @@ RUN UV_PROJECT_ENVIRONMENT=/venv uv sync --project /src/plugin --frozen --no-dev
 # Runtime extras for the shell-less final stage: nano (its libs per ldd, libncursesw, libtinfo
 # and libc, are already in distroless, byte-identical), the terminfo entries for
 # `podman exec -it` (TERM=xterm), and the view mountpoint.
-RUN mkdir -p /extras/usr/bin /extras/usr/share/terminfo/x /extras/mnt/beetsfs \
+RUN mkdir -p /extras/usr/bin /extras/usr/share/terminfo/x /extras/beetsfs \
  && cp /usr/bin/nano /extras/usr/bin/ \
  && cp /usr/share/terminfo/x/xterm /usr/share/terminfo/x/xterm-256color /extras/usr/share/terminfo/x/
 

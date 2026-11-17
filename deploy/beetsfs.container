@@ -30,7 +30,7 @@ Volume=/root/music-links:/music:z,ro
 # the parent of the upstream FUSE mount, at the identical path (the links are absolute)
 Volume=/root/mount:/root/mount:ro,rslave
 # no :z on the view: see compose.yaml
-Volume=/root/beetsfs/view:/mnt/beetsfs:rshared
+Volume=/root/beetsfs/view:/beetsfs:rshared
 
 [Service]
 # The view dir must be a shared mount (bound onto itself), once per boot, before the start.

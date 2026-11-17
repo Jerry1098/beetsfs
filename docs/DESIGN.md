@@ -86,7 +86,7 @@ requirement.)
             │                            │                  │           │
             └────────────────────────────┼──────────────────┼───────────┘
                                    pread │                  │ FUSE
-                              /music (ro bind)  /mnt/beetsfs/music (in the rshared volume)
+                              /music (ro bind)  /beetsfs/music (in the rshared volume)
                                                             │
                                                   players / media servers
 ```
@@ -104,7 +104,7 @@ The only interface between Python and Rust is `index.db`. No sockets, no RPC.
 ### beets configuration (the part that makes it non-destructive)
 
 [`docker/config/beets/config.yaml`](../docker/config/beets/config.yaml), copied to
-`/config/beets` on first start: `directory: /mnt/beetsfs/music` (only used to compute
+`/config/beets` on first start: `directory: /beetsfs/music` (only used to compute
 relative paths), `import: {copy: no, move: no, write: no}`, `paths:` laying the view out
 Artist/Album/Songs, and the `beetsfs` plugin.
 
@@ -299,8 +299,8 @@ podman compose exec beetsfs beet edit <query>               # correct wrong data
 podman compose exec beetsfs beet modify <query> field=value
 ```
 
-**The view and its consumers.** The volume is `$VIEW:/mnt/beetsfs:rshared` and the daemon
-mounts one level down, at `/mnt/beetsfs/music`. `$VIEW` must be a shared mount, once per boot
+**The view and its consumers.** The volume is `$VIEW:/beetsfs:rshared` and the daemon
+mounts one level down, at `/beetsfs/music`. `$VIEW` must be a shared mount, once per boot
 before the start (rootless: `podman unshare sh -c 'mount --bind "$0" "$0" && mount
 --make-shared "$0"' "$VIEW"`; rootful: the same as root, the quadlet's `ExecStartPre=`).
 Without it nothing outside the container sees the view, and the container cannot tell (its

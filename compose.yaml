@@ -39,10 +39,10 @@ services:
       - ${CONFIG:-./config}:/config:Z
       # :z relabels the music for containers (symlinks: only the links themselves)
       - ${MUSIC:?set MUSIC to your music folder}:/music:z,ro
-      # The daemon mounts at /mnt/beetsfs/music, one level down: see above. No :z here: its
+      # The daemon mounts at /beetsfs/music, one level down: see above. No :z here: its
       # relabel walk fails on a dead mount left by a SIGKILL ("transport endpoint is not
       # connected"). Label the directory itself once instead: chcon -t container_file_t "$VIEW"
-      - ${VIEW:?set VIEW to the view folder}:/mnt/beetsfs:rshared
+      - ${VIEW:?set VIEW to the view folder}:/beetsfs:rshared
       # Music that is symlinks with absolute paths into another FUSE mount (e.g. a cloud
       # mount at /srv/mount/<sub>): bind the PARENT of that mount at the identical path, so a
       # restart of the upstream mount propagates. FUSE cannot be relabelled (containers read

@@ -29,7 +29,7 @@ for p in filter(str.isdigit, os.listdir("/proc")):
     try:
         if open(f"/proc/{p}/comm").read() == "beetsfs\n": os.kill(int(p), int(sys.argv[1]))
     except OSError: pass' "$1"; }
-V=/mnt/beetsfs/music CV=/view/music   # the view inside beetsfs, and in a consumer binding $VIEW at /view
+V=/beetsfs/music CV=/view/music   # the view inside beetsfs, and in a consumer binding $VIEW at /view
 consumer() { podman run --rm -v "$VIEW:/view:ro,rslave" docker.io/library/alpine:3.20 "$@"; }
 state() { podman ps -a --filter "label=io.podman.compose.project=$proj" --format '{{.State}}'; }
 exitcode() { podman ps -a --filter "label=io.podman.compose.project=$proj" --format '{{.ExitCode}}'; }
@@ -75,7 +75,7 @@ EOF
 ns sh -c 'mount --bind "$0" "$0" && mount --make-shared "$0"' "$VIEW"
 
 c up -d --build >"$TMP/build.log" 2>&1 || { tail -n 30 "$TMP/build.log" >&2; fail "compose up"; }
-within 60 py 'import os; os.path.ismount("/mnt/beetsfs/music") or exit(1)' || fail "view not mounted"
+within 60 py 'import os; os.path.ismount("/beetsfs/music") or exit(1)' || fail "view not mounted"
 [ "$(getenforce 2>/dev/null || echo Disabled)" = Disabled ] \
   || [[ $(podman inspect -f '{{.ProcessLabel}}' "$(podman ps -q --filter "label=io.podman.compose.project=$proj")") == *:container_t:* ]] \
   || fail "beetsfs does not run confined (container_t)"
@@ -99,7 +99,7 @@ within 5 depth3 || fail "view not laid out Artist/Album/file"
 box beet modify -y title:wrong title=Right >>"$TMP/beet.log" 2>&1 || fail "beet modify"
 nright=$(box beet ls title:Right | wc -l)
 [ "$nright" -gt 0 ] || fail "no item titled Right"
-renamed() { [ "$(py 'import os; print(sum(" Right" in f for _, _, fs in os.walk("/mnt/beetsfs/music") for f in fs))')" = "$nright" ]; }
+renamed() { [ "$(py 'import os; print(sum(" Right" in f for _, _, fs in os.walk("/beetsfs/music") for f in fs))')" = "$nright" ]; }
 within 5 renamed || fail "title change not visible in the view within 5 s"
 
 # symlinked items are served from their FUSE targets: passthrough byte-identical, retagged

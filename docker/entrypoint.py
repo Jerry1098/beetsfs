@@ -10,7 +10,7 @@ import threading
 
 # The daemon mounts one level below the view volume: consumers bind the volume (a plain
 # directory), so a stop/start or a SIGKILL never leaves them holding a copy of a dead mount.
-MNT, INDEX = "/mnt/beetsfs/music", "/config/beets/beetsfs-index.db"  # the plugin's: next to library.db
+MNT, INDEX = "/beetsfs/music", "/config/beets/beetsfs-index.db"  # the plugin's: next to library.db
 MNT_DETACH = 2
 libc = ctypes.CDLL(None, use_errno=True)
 

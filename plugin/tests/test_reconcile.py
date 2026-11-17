@@ -9,7 +9,7 @@ from conftest import assemble
 
 @pytest.fixture
 def lib(music, tmp_path):
-    lib = Library(str(tmp_path / "lib.db"), directory=b"/mnt/beetsfs")
+    lib = Library(str(tmp_path / "lib.db"), directory=b"/beetsfs")
     for n in ("tagged.mp3", "tagged.flac", "plain.ogg"):
         lib.add(Item.from_path(bytes(music / n)))
     return lib
@@ -297,7 +297,7 @@ def test_read_error_is_retried_not_stored(lib, conn, monkeypatch):
 
 def test_fresh_import_is_not_rewritten(music, tmp_path, plugin, conn):
     # beets holds comp=False in memory at import, 0 once read back: the index uses the stored item
-    lib = Library(str(tmp_path / "lib3.db"), directory=b"/mnt/beetsfs")
+    lib = Library(str(tmp_path / "lib3.db"), directory=b"/beetsfs")
     item = Item.from_path(bytes(music / "tagged.mp3")); item.comp = False; lib.add(item)
     plugin.database_change(lib, item); plugin.flush()
     assert reconcile(lib, conn) == 0
