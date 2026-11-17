@@ -1,0 +1,59 @@
+# Target: podman, rootless or rootful, `podman compose up -d` (MUSIC, VIEW and optionally
+# CONFIG set in the environment or in a .env file next to this file). Rootful as a quadlet:
+# deploy/beetsfs.container.
+#
+# beets is driven from the CLI:
+#   podman compose exec beetsfs beet import /music          # import in place, nothing copied
+#   podman compose exec beetsfs beet edit <query>           # fix wrong data in an editor
+#   podman compose exec beetsfs beet modify <query> field=value
+# The view follows within seconds.
+#
+# The view is $VIEW/music. The view path must be a shared mount, once per boot, before `up`.
+# Rootless (other containers of the same user see the view, the host does not):
+#   mkdir -p "$VIEW" && podman unshare sh -c 'mount --bind "$0" "$0" && mount --make-shared "$0"' "$VIEW"
+# Rootful (the host and every container see it): the same as root, without `podman unshare`.
+# SELinux, once: chcon -t container_file_t "$VIEW" (see volumes). No setsebool needed.
+services:
+  beetsfs:
+    image: beetsfs:dev
+    build: .
+    restart: unless-stopped
+    devices: [/dev/fuse]
+    cap_drop: [ALL]
+    cap_add: [SYS_ADMIN]            # mount(2)/umount2(2) for FUSE (rootful: real SYS_ADMIN, see DESIGN);
+                                    # only PID 1 keeps it: the daemon drops it once mounted, `beet` too (docker/beet.py)
+    # SELinux stays on (container_t): the volumes below are relabelled (:z/:Z)
+    security_opt: [no-new-privileges]
+    read_only: true                 # writable: /config, the view, and /tmp
+    # RAM, capped: the plugin's tag stubs (<= 6 KiB audio + tags + cover) and `beet edit`'s temp files
+    tmpfs: ["/tmp:size=256m,mode=1777"]
+    # Default rootless user namespace on purpose (no `userns_mode: keep-id`): container root is
+    # your user, so the daemon reads your music, and the FUSE mount belongs to podman's shared
+    # user namespace, which every default rootless container of yours is in. With keep-id the
+    # container gets its own user namespace and FUSE refuses access to the view from any other
+    # container ("Permission denied"). Everything runs as container root, so files in CONFIG
+    # are owned by your user. Rootful: no user namespace (not UserNS=auto either: a FUSE mount
+    # made in a child user namespace is "Permission denied" to the host and to other rootful
+    # containers, allow_other or not); container root is host root.
+    volumes:
+      - ${CONFIG:-./config}:/config:Z
+      # :z relabels the music for containers (symlinks: only the links themselves)
+      - ${MUSIC:?set MUSIC to your music folder}:/music:z,ro
+      # The daemon mounts at /mnt/beetsfs/music, one level down: see above. No :z here: its
+      # relabel walk fails on a dead mount left by a SIGKILL ("transport endpoint is not
+      # connected"). Label the directory itself once instead: chcon -t container_file_t "$VIEW"
+      - ${VIEW:?set VIEW to the view folder}:/mnt/beetsfs:rshared
+      # Music that is symlinks with absolute paths into another FUSE mount (e.g. a cloud
+      # mount at /srv/mount/<sub>): bind the PARENT of that mount at the identical path, so a
+      # restart of the upstream mount propagates. FUSE cannot be relabelled (containers read
+      # it as it is); label the directory itself once: chcon -t container_file_t /srv/mount
+      # - /srv/mount:/srv/mount:ro,rslave
+
+  # A consumer of the view, e.g. a media server: rootless, same user and default user
+  # namespace (no keep-id); rootful, any rootful container. It binds $VIEW (a plain
+  # directory) rslave and reads <mount>/music, so it sees the FUSE mount whenever beetsfs is
+  # up, across restarts.
+  # jellyfin:
+  #   image: docker.io/jellyfin/jellyfin:latest
+  #   volumes:
+  #     - ${VIEW}:/media:ro,rslave     # the library is /media/music

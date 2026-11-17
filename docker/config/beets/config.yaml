@@ -1,0 +1,12 @@
+directory: /mnt/beetsfs/music  # where the view is; only used to compute relative paths
+library: /config/beets/library.db
+import:
+  copy: no
+  move: no
+  write: no                    # also the default for `beet modify`
+  incremental: yes
+paths:
+  default:   $albumartist/$album%aunique{}/$track $title
+  comp:      $albumartist/$album%aunique{}/$track $title
+  singleton: $artist/Singles/$title
+plugins: [musicbrainz, edit, beetsfs] # musicbrainz: beets' default metadata source; edit: `beet edit <query>`

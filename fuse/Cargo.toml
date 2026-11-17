@@ -1,0 +1,12 @@
+[package]
+name = "beetsfs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fuser = "0.18"
+rusqlite = { version = "0.43", features = ["bundled"] }
+libc = "0.2"
+
+[profile.release]
+panic = "abort" # with 4 FUSE threads a panic must end the process, not one thread (the container restarts it)

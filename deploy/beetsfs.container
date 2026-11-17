@@ -1,0 +1,41 @@
+# Rootful beetsfs as a podman quadlet, mirroring compose.yaml (NOT verified on the dev
+# machine: rootful podman was not available there). Paths are examples: the music is a dir
+# of absolute symlinks into a FUSE mount under /root/mount/<sub>.
+# Once, as root:
+#   podman build -t localhost/beetsfs /path/to/beetsfs-checkout
+#   mkdir -p /root/beetsfs/config /root/beetsfs/view
+#   chcon -t container_file_t /root/beetsfs/view /root/mount   # SELinux: these dirs only, not -R
+#   cp beetsfs.container /etc/containers/systemd/ && systemctl daemon-reload && systemctl start beetsfs
+# beets: podman exec beetsfs beet import /music
+#
+# A consumer (e.g. the media server's .container) binds the view dir, library at /media/music:
+#   Volume=/root/beetsfs/view:/media:ro,rslave
+
+[Unit]
+Description=beetsfs: beets-tagged read-only view of the music
+# the upstream FUSE mount's service, if any: After=<it>.service
+
+[Container]
+ContainerName=beetsfs
+Image=localhost/beetsfs
+AddDevice=/dev/fuse
+DropCapability=all
+AddCapability=SYS_ADMIN
+# required: keeps `beet` from regaining the capabilities it drops (it refuses to run without it)
+NoNewPrivileges=true
+ReadOnly=true
+Tmpfs=/tmp:size=256m,mode=1777
+Volume=/root/beetsfs/config:/config:Z
+Volume=/root/music-links:/music:z,ro
+# the parent of the upstream FUSE mount, at the identical path (the links are absolute)
+Volume=/root/mount:/root/mount:ro,rslave
+# no :z on the view: see compose.yaml
+Volume=/root/beetsfs/view:/mnt/beetsfs:rshared
+
+[Service]
+# The view dir must be a shared mount (bound onto itself), once per boot, before the start.
+ExecStartPre=/bin/sh -c 'mountpoint -q /root/beetsfs/view || { mount --bind /root/beetsfs/view /root/beetsfs/view && mount --make-shared /root/beetsfs/view; }'
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+tests/music/
+target/
+__pycache__/
+.venv/
+*.egg-info/
+.pytest_cache/
+.superpowers/
+config/
+.env

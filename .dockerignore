@@ -1,0 +1,10 @@
+# only what the Dockerfile copies
+*
+!fuse
+!plugin
+!docker
+fuse/target
+plugin/.venv
+**/__pycache__
+**/.pytest_cache
+**/*.egg-info
