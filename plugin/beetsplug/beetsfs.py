@@ -95,7 +95,7 @@ def build_segments(item) -> list[Seg]:
         except OSError:
             raise
         except Exception:
-            log.warning("beetsfs: falling back to passthrough for %r", src, exc_info=True)
+            log.warning("falling back to passthrough for %r", src, exc_info=True)
             return [(None, 0, size)]
 
 
@@ -336,7 +336,7 @@ def _vpath(conn, item) -> bytes | None:
         base, ext = os.path.splitext(vpath)
         vpath = base + b" [%d]" % item.id + ext
     if b"\0" in vpath or any(c in (b"", b".", b"..") for c in vpath.split(b"/")):
-        log.warning("beetsfs: leaving %r out of the view: unusable path %r", item.path, vpath)
+        log.warning("leaving %r out of the view: unusable path %r", item.path, vpath)
         return None
     return vpath
 
@@ -400,9 +400,9 @@ def reconcile(lib, conn, ids=None) -> int:
         try:
             n += _reconcile_item(conn, lib, item_id, stale)
         except OSError as e:  # the source (network): no traceback, there may be thousands
-            log.warning("beetsfs: skipping item %d: %s", item_id, e)
+            log.warning("skipping item %d: %s", item_id, e)
         except Exception:
-            log.warning("beetsfs: skipping item %d", item_id, exc_info=True)
+            log.warning("skipping item %d", item_id, exc_info=True)
     if ids is None:
         def orphans(conn):
             # the library now, under the lock: others may have added items since the scan
@@ -443,11 +443,11 @@ class BeetsFS(BeetsPlugin):
     def flush(self):
         ids, self.changed = self.changed, set()
         if ids:
-            log.info("beetsfs: indexing %d changed items", len(ids))
+            log.info("indexing %d changed items", len(ids))
             try:
                 reconcile(self.lib, self._conn(), sorted(ids))
             except Exception:
-                log.warning("beetsfs: reconcile failed", exc_info=True)
+                log.warning("reconcile failed", exc_info=True)
 
     def commands(self):
         cmd = ui.Subcommand("beetsfs", help="reconcile the beetsfs index with the library")
