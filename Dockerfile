@@ -63,5 +63,7 @@ COPY docker/config /defaults
 COPY docker/entrypoint.py /entrypoint.py
 # `beet` on PATH is the wrapper that drops all capabilities first
 COPY --chmod=755 docker/beet.py /usr/local/bin/beet
+# `fpcalc` on PATH retries (cloud reads can fail mid-file under load); the binary is /usr/bin/fpcalc
+COPY --chmod=755 docker/fpcalc.py /usr/local/bin/fpcalc
 ENV PATH=/usr/local/bin:/venv/bin:/usr/bin:/bin BEETSDIR=/config/beets EDITOR=nano PYTHONDONTWRITEBYTECODE=1
 ENTRYPOINT ["/usr/bin/python3", "/entrypoint.py"]

@@ -297,6 +297,9 @@ commented-out consumer service.
   matches by acoustic fingerprint (AcoustID): at import it decodes the first 120 s of every
   track with `fpcalc`, built in its own stage from Chromaprint and a minimal FFmpeg (audio
   decoders only), linked statically; both sources pinned by sha256.
+  `fpcalc` on `PATH` is [`docker/fpcalc.py`](../docker/fpcalc.py): it retries up to 3
+  times (cloud reads can fail mid-file under load, and pyacoustid drops any non-zero exit)
+  and logs failures to `/tmp/fpcalc-errors.log`.
   That is the one place that reads audio from the sources, several MB per track; drop
   `chroma` from `plugins:` to import without it.
 

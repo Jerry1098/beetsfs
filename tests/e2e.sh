@@ -117,6 +117,10 @@ box beet fingerprint --help >/dev/null || fail "chroma plugin not loadable"
 for f in tagged.mp3 tagged.flac plain.ogg; do
   box fpcalc -length 5 "/music/$f" | grep -q '^FINGERPRINT=' || fail "fpcalc does not fingerprint $f"
 done
+# the PATH one is the retrying wrapper: a failing call is logged (here: a file that is not audio)
+box fpcalc /etc/os-release >/dev/null 2>&1 && fail "fpcalc accepted a non-audio file"
+py 'import sys; sys.exit("attempt 3 exit" not in open("/tmp/fpcalc-errors.log").read())' \
+  || fail "fpcalc wrapper did not retry and log"
 
 # beet edit (the tool for correcting data) writes its temp file (tmpfs /tmp on the read-only
 # root); an editor that only prints its parent's (beet's) capabilities changes nothing
