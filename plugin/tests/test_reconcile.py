@@ -392,3 +392,12 @@ def test_progress_lines(lib, conn, monkeypatch, caplog):
         reconcile(lib, conn, [i.id for i in lib.items()])
     assert [r.getMessage() for r in caplog.records if r.getMessage().startswith("indexed")] == \
         ["indexed 1/3 items", "indexed 2/3 items", "indexed 3/3 items"]
+
+
+def test_progress_on_a_terminal_is_one_line(lib, conn, monkeypatch):
+    import io
+    import sys
+    tty = io.StringIO(); tty.isatty = lambda: True
+    monkeypatch.setattr(sys, "stderr", tty)
+    reconcile(lib, conn, [i.id for i in lib.items()])
+    assert tty.getvalue() == "\rbeetsfs: indexed 1/3 items\rbeetsfs: indexed 2/3 items\rbeetsfs: indexed 3/3 items\n"
