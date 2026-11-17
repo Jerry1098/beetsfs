@@ -16,6 +16,7 @@ from beets.plugins import BeetsPlugin
 K = 6 * 1024  # audio bytes in the stub: 4x the measured minimum (1444 B: one max-size MP3 frame + next header)
 ZEROS = b"\0" * 65536  # one shared blob for the zero padding mutagen puts at the end of a tag
 MAX_HEAD = 1 << 20  # stored tag bytes per item above this: passthrough instead
+PROGRESS = 5  # seconds between progress lines while reconciling
 log = logging.getLogger("beets.beetsfs")
 NFO_RELEASE = re.compile(rb"<musicbrainzalbumid>\s*([0-9a-f-]{36})\s*</musicbrainzalbumid>")
 
@@ -396,15 +397,18 @@ def _reconcile_item(conn, lib, item_id, stale=None) -> int:
 
 def reconcile(lib, conn, ids=None) -> int:
     """Bring the rows of item ids (None = whole library) in line; returns rows written or deleted."""
-    n = 0
+    n, of, last = 0, "" if ids is None else f"/{len(ids)}", time.monotonic()
     work = ((i.id, i) for i in lib.items()) if ids is None else ((i, None) for i in ids)
-    for item_id, stale in work:
+    for done, (item_id, stale) in enumerate(work, 1):
         try:
             n += _reconcile_item(conn, lib, item_id, stale)
         except OSError as e:  # the source (network): no traceback, there may be thousands
             log.warning("skipping item %d: %s", item_id, e)
         except Exception:
             log.warning("skipping item %d", item_id, exc_info=True)
+        if time.monotonic() - last >= PROGRESS:
+            log.info("indexed %d%s items", done, of)
+            last = time.monotonic()
     if ids is None:
         def orphans(conn):
             # the library now, under the lock: others may have added items since the scan

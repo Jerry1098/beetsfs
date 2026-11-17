@@ -5,6 +5,7 @@ import:
   move: no
   write: no                    # also the default for `beet modify`
   incremental: yes
+  incremental_skip_later: yes  # skipped albums are not remembered: the next import asks again
 paths:
   default:   $albumartist/$album%aunique{}/$track $title
   comp:      $albumartist/$album%aunique{}/$track $title

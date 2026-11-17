@@ -383,3 +383,12 @@ def test_release_id_from_album_nfo(tmp_path, plugin):
     plain = [Item(title="c")]
     plugin.release_from_nfo(None, SimpleNamespace(paths=[bytes(disc)], items=plain))  # no nfo: untouched
     assert plain[0].mb_albumid == ""
+
+
+def test_progress_lines(lib, conn, monkeypatch, caplog):
+    from beetsplug import beetsfs
+    monkeypatch.setattr(beetsfs, "PROGRESS", 0)
+    with caplog.at_level("INFO", logger="beets.beetsfs"):
+        reconcile(lib, conn, [i.id for i in lib.items()])
+    assert [r.getMessage() for r in caplog.records if r.getMessage().startswith("indexed")] == \
+        ["indexed 1/3 items", "indexed 2/3 items", "indexed 3/3 items"]
