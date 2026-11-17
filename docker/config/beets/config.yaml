@@ -6,8 +6,10 @@ import:
   write: no                    # also the default for `beet modify`
   incremental: yes
   incremental_skip_later: yes  # skipped albums are not remembered: the next import asks again
+item_fields:  # inline plugin: on multi-disc albums a disc prefix, "2-01 Title"
+  discprefix: f"{disc}-" if disctotal > 1 else ""
 paths:
-  default:   $albumartist/$album%aunique{}/$track $title
-  comp:      $albumartist/$album%aunique{}/$track $title
+  default:   $albumartist/$album%aunique{}/$discprefix$track $title
+  comp:      $albumartist/$album%aunique{}/$discprefix$track $title
   singleton: $artist/Singles/$title
-plugins: [musicbrainz, chroma, edit, beetsfs] # musicbrainz: metadata source; chroma: acoustic fingerprints; edit: `beet edit <query>`
+plugins: [musicbrainz, chroma, edit, inline, beetsfs] # musicbrainz: metadata source; chroma: acoustic fingerprints; edit: `beet edit <query>`; inline: item_fields

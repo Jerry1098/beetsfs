@@ -106,7 +106,8 @@ The only interface between Python and Rust is `index.db`. No sockets, no RPC.
 [`docker/config/beets/config.yaml`](../docker/config/beets/config.yaml), copied to
 `/config/beets` on first start: `directory: /beetsfs/music` (only used to compute
 relative paths), `import: {copy: no, move: no, write: no}`, `paths:` laying the view out
-Artist/Album/Songs, and the `beetsfs` plugin.
+Artist/Album/Songs (`2-01 Title` on multi-disc albums, via the `inline` plugin's
+`discprefix` field), and the `beetsfs` plugin.
 
 With `copy/move/write: no`, beets records the original path of each file and
 keeps corrected metadata only in its database. That is a stock beets mode.
