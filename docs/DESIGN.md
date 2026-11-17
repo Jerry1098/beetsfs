@@ -293,6 +293,10 @@ commented-out consumer service.
   `beet beetsfs` once in a thread → when the daemon exits, unmount the view. It forwards
   SIGTERM/SIGINT to the daemon (exit 143) and exits with the daemon's status, so a dead
   daemon stops the container and the restart policy brings it back.
+- **Release IDs from `album.nfo`:** if an album folder (or a multi-disc album's parent
+  folder) has a Kodi-style `album.nfo` with `<musicbrainzalbumid>` (Lidarr writes these), the
+  plugin sets it as the items' `mb_albumid` when beets creates the import task: beets looks
+  that release up and, on a strong match, skips the text search.
 - **beets config** also enables `musicbrainz` (autotagging), `chroma` and `edit`. `chroma`
   matches by acoustic fingerprint (AcoustID): at import it decodes the first 120 s of every
   track with `fpcalc`, built in its own stage from Chromaprint and a minimal FFmpeg (audio

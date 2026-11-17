@@ -368,3 +368,18 @@ p.send = send
 ui.main(["modify", "-y", "title=Hup"])""")
     assert rc == 128 + 1, err
     assert b"Hup" in idx.execute("SELECT vpath FROM files").fetchone()[0], err
+
+
+def test_release_id_from_album_nfo(tmp_path, plugin):
+    from types import SimpleNamespace
+    album, disc = tmp_path / "Revolver (1966)", tmp_path / "Revolver (1966)" / "Digital Media 01"
+    disc.mkdir(parents=True)
+    rid = "0a02fb1a-c803-456c-bcd2-ca91cc984ea2"
+    (album / "album.nfo").write_text(f"<album>\n  <musicbrainzreleasegroupid>51922f10-c8df-41fa-b219-e501df30cf19"
+                                     f"</musicbrainzreleasegroupid>\n  <musicbrainzalbumid>{rid}</musicbrainzalbumid>\n</album>\n")
+    items = [Item(title="a"), Item(title="b", mb_albumid="something-else")]
+    plugin.release_from_nfo(None, SimpleNamespace(paths=[bytes(album), bytes(disc)], items=items))
+    assert [i.mb_albumid for i in items] == [rid, rid]
+    plain = [Item(title="c")]
+    plugin.release_from_nfo(None, SimpleNamespace(paths=[bytes(disc)], items=plain))  # no nfo: untouched
+    assert plain[0].mb_albumid == ""

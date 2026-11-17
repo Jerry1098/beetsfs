@@ -2,6 +2,7 @@ import atexit
 import hashlib
 import logging
 import os
+import re
 import signal
 import sqlite3
 import sys
@@ -16,6 +17,7 @@ K = 6 * 1024  # audio bytes in the stub: 4x the measured minimum (1444 B: one ma
 ZEROS = b"\0" * 65536  # one shared blob for the zero padding mutagen puts at the end of a tag
 MAX_HEAD = 1 << 20  # stored tag bytes per item above this: passthrough instead
 log = logging.getLogger("beets.beetsfs")
+NFO_RELEASE = re.compile(rb"<musicbrainzalbumid>\s*([0-9a-f-]{36})\s*</musicbrainzalbumid>")
 
 # (data, offset, length); data None = range of the source file
 Seg = tuple[bytes | None, int, int]
@@ -425,6 +427,7 @@ class BeetsFS(BeetsPlugin):
         super().__init__()
         self.conn, self.lib, self.changed = None, None, set()
         self.register_listener("database_change", self.database_change)
+        self.register_listener("import_task_created", self.release_from_nfo)
         atexit.register(self.flush)
         for s in (signal.SIGTERM, signal.SIGHUP):  # e.g. an ssh drop during `beet import`
             if signal.getsignal(s) is signal.SIG_DFL:
@@ -435,6 +438,21 @@ class BeetsFS(BeetsPlugin):
             self.conn = open_index(os.path.join(os.path.dirname(config["library"].as_filename()),
                                                 "beetsfs-index.db"))
         return self.conn
+
+    def release_from_nfo(self, session, task):
+        """An album.nfo (Kodi format; Lidarr writes one) naming the MusicBrainz release: make it
+        the items' mb_albumid, so beets looks that release up and, on a strong match, does not
+        search at all. A multi-disc task's first path is the album folder."""
+        for d in getattr(task, "paths", None) or []:
+            try:
+                with open(os.path.join(d, b"album.nfo"), "rb") as f:
+                    m = NFO_RELEASE.search(f.read(1 << 16))
+            except OSError:
+                continue
+            if m:
+                for item in task.items:
+                    item.mb_albumid = m.group(1).decode()
+                return
 
     def database_change(self, lib, model):
         self.lib = lib
