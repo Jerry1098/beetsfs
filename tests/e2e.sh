@@ -112,6 +112,12 @@ t=$(py 'import sys; from mediafile import MediaFile; print(MediaFile(sys.argv[1]
 [ "$t" = Right ] || fail "symlinked mp3 title through the view: $t"
 [ -z "$(box beet ls path:/music/link-gone.mp3)" ] || fail "dangling symlink imported"
 
+# acoustic fingerprints: the chroma plugin loads and its fpcalc runs in the image
+box beet fingerprint --help >/dev/null || fail "chroma plugin not loadable"
+for f in tagged.mp3 tagged.flac plain.ogg; do
+  box fpcalc -length 5 "/music/$f" | grep -q '^FINGERPRINT=' || fail "fpcalc does not fingerprint $f"
+done
+
 # beet edit (the tool for correcting data) writes its temp file (tmpfs /tmp on the read-only
 # root); an editor that only prints its parent's (beet's) capabilities changes nothing
 out=$(c exec -T -e EDITOR="python -c 'import os; print(open(\"/proc/%d/status\" % os.getppid()).read())'" \

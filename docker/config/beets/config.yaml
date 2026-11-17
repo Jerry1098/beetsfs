@@ -9,4 +9,4 @@ paths:
   default:   $albumartist/$album%aunique{}/$track $title
   comp:      $albumartist/$album%aunique{}/$track $title
   singleton: $artist/Singles/$title
-plugins: [musicbrainz, edit, beetsfs] # musicbrainz: beets' default metadata source; edit: `beet edit <query>`
+plugins: [musicbrainz, chroma, edit, beetsfs] # musicbrainz: metadata source; chroma: acoustic fingerprints; edit: `beet edit <query>`

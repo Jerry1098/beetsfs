@@ -291,7 +291,12 @@ commented-out consumer service.
   `beet beetsfs` once in a thread → when the daemon exits, unmount the view. It forwards
   SIGTERM/SIGINT to the daemon (exit 143) and exits with the daemon's status, so a dead
   daemon stops the container and the restart policy brings it back.
-- **beets config** also enables `musicbrainz` (autotagging) and `edit`.
+- **beets config** also enables `musicbrainz` (autotagging), `chroma` and `edit`. `chroma`
+  matches by acoustic fingerprint (AcoustID): at import it decodes the first 120 s of every
+  track with `fpcalc`, built in its own stage from Chromaprint and a minimal FFmpeg (audio
+  decoders only), linked statically; both sources pinned by sha256.
+  That is the one place that reads audio from the sources, several MB per track; drop
+  `chroma` from `plugins:` to import without it.
 
 ```sh
 podman compose exec beetsfs beet import /music              # import in place, nothing copied
@@ -325,7 +330,7 @@ FUSE mount at `/root/mount/<sub>`): bind the PARENT of that FUSE mount at the id
 `ro,rslave`, so an upstream restart propagates. The daemon follows symlinks; a link whose
 target is missing is not imported. Cloud mounts must give container root read access
 (`allow_other`; files root may read without CAP_DAC_OVERRIDE, e.g. not mode 0600 for another
-uid). Network cost: see the plugin's bytes per file (once per file, and again per tag change),
+uid). Network cost: chroma's fingerprinting at import (above), the plugin's bytes per file (once per file, and again per tag change),
 one `stat` per source at container start, one `stat` per open, and the read ranges a player
 asks for. Where a cloud mount reports unstable mtimes, beetsfs serves the original tags (see
 `open`) until the next reconcile.
