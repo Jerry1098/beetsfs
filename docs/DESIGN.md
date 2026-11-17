@@ -163,20 +163,22 @@ One function, `reconcile(lib, conn, ids)`, does all the work. For each item:
      trailing 128-byte ID3v1 tag if present.
    - FLAC: walk metadata block headers until the last-block flag.
 3. **Stub trick.** Copy `source[0 : audio_start + K]` (K = 6 KiB: mutagen needs
-   one full MP3 frame, measured worst case 1444 bytes, to accept the file; 4x margin) to a temp file and call
+   one full MP3 frame, measured worst case 1444 bytes, to accept the file; 4x margin) to a
+   temp file, except the data of each picture of 4 KiB or more: the plugin walks the FLAC
+   metadata blocks or the ID3v2.3/2.4 frames, reading headers only, and writes a random
+   placeholder of the same length instead (FLAC padding: zeros). Then call
    `item.write(path=stub)`. beets writes its tags into the stub exactly as it
    would into the real file.
 4. Check that the last K bytes of the stub equal
    `source[audio_start : audio_start + K]`. Then `head = stub[:-K]` is the new
    metadata and the audio segment is `source[audio_start : audio_end)`.
-5. **Covers.** For each picture in the new `head` (read with mutagen), search
-   for its raw image bytes in the source's old header.
-   - Found → the cover is unchanged: cut it out of `head` and emit a source
-     segment pointing at where it already is. This is a byte comparison, so
-     there are no false positives.
-   - Not found → beets changed or added the cover (or the source stores it in
-     an encoding that differs byte-wise). Its bytes stay in a blob. Blobs are
-     keyed by SHA-256, so an album's cover is stored once, not once per track.
+5. **Covers.** `item.write` does not touch pictures, so each placeholder comes out of the
+   writer unchanged: find it in `head` (it must occur exactly once) and emit a source segment
+   for exactly the range it replaced. The cover is neither read nor stored. A placeholder
+   that is not found once (a writer that re-encoded it) → passthrough. Pictures under
+   4 KiB, and files whose tag layout the walk does not handle (ID3v2.2, unsynchronisation,
+   an extended header, compressed or encrypted frames, lengths that do not add up, ID3 padding
+   that is not zeros), are read and stored as they are.
 6. What is left of `head` between the cut-outs becomes blob segments. A trailing zero run
    (64 bytes or more, mutagen's padding) points into one shared blob of 64 KiB zeros
    instead of being stored.
@@ -187,9 +189,9 @@ One function, `reconcile(lib, conn, ids)`, does all the work. For each item:
    stays. Rows are deleted only when the item leaves the library.
 
 The source is opened once, unbuffered (a buffered file reads a whole 128 KiB buffer per
-seek). Bytes read from the source per retagged file: a few header probes plus
-`audio_start + 6 KiB`, which includes any embedded cover (measured: 1.6 MB per FLAC
-track of the example albums, 440 kB per MP3).
+seek). Bytes read from the source per retagged file: the tag area without its pictures,
+plus 6 KiB of audio: under 64 KiB for every file in the test music (tested), against
+1.6 MB per FLAC track and 440 kB per MP3 when the covers were read.
 
 Rows whose item no longer exists are deleted, and blobs no longer referenced
 by any segment are deleted with them, in one short transaction at the end of a full

@@ -116,3 +116,25 @@ def test_long_zero_run_before_a_cut(tmp_path):
     beetsfs._blob(segs, a); segs.append((None, 0, 5)); beetsfs._blob(segs, b)
     assert assemble(segs, src) == a + b"COVER" + b
     assert [n for d, _, n in segs if d is ZEROS] == [65536, 65536, 150000 - 2 * 65536, 100]
+
+
+@pytest.mark.parametrize(
+    "src", ["tagged.mp3", "tagged.flac"] + sorted(str(p) for p in REAL.rglob("*") if p.suffix in (".mp3", ".flac")))
+def test_cover_is_not_read(music, src, monkeypatch, tmp_path):
+    # the network cost of a retag: the tag area minus the pictures, plus K bytes of audio
+    import builtins
+    src = music / src if "/" not in src else Path(src)
+    real_open, read = builtins.open, []
+
+    class Counting:
+        def __init__(self, f): self.f = f
+        def __enter__(self): return self
+        def __exit__(self, *a): self.f.close()
+        def __getattr__(self, n): return getattr(self.f, n)
+        def read(self, n=-1):
+            b = self.f.read(n); read.append(len(b)); return b
+
+    monkeypatch.setattr(builtins, "open", lambda p, *a, **k: Counting(real_open(p, *a, **k)) if p == bytes(src) else real_open(p, *a, **k))
+    segs = check_matches(src, tmp_path)  # tags still match a real beet write
+    covers = sum(n for d, _, n in segs[:-1] if d is None)
+    assert covers > 0 and sum(read) < 64 * 1024, (covers, sum(read))

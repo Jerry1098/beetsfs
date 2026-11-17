@@ -8,7 +8,6 @@ import sys
 import tempfile
 import time
 
-import mutagen
 from beets import config, ui
 from beets.library import Item
 from beets.plugins import BeetsPlugin
@@ -71,13 +70,6 @@ def read_exact(f, n: int) -> bytes:
     return b
 
 
-def pictures(path: bytes) -> list[bytes]:
-    f = mutagen.File(path)
-    if hasattr(f, "pictures"):
-        return [p.data for p in f.pictures]
-    return [a.data for a in f.tags.getall("APIC")] if f.tags else []
-
-
 def _blob(segs, data):
     """Append data as blob segments; a trailing zero run of 64 bytes or more points into ZEROS."""
     z = len(data) - len(data.rstrip(b"\0"))
@@ -107,33 +99,129 @@ def build_segments(item) -> list[Seg]:
             return [(None, 0, size)]
 
 
+PIC = 4096  # pictures this big or bigger are not read: a placeholder stands in, the view cuts to the source
+
+
+def _skeleton(f, name: bytes, a: int) -> tuple[bytes, list[tuple[bytes, int]]]:
+    """source[0:a] with each picture's data replaced by a random placeholder of the same length
+    (FLAC padding by zeros), not read; plus [(placeholder, offset of the picture data)]. The
+    view maps each placeholder back to exactly the source range it replaced, so a misparsed
+    header cannot corrupt anything: a placeholder beets' writer did not carry over unchanged
+    is not found once, and the file falls back to passthrough. Anything unusual: all read."""
+    try:
+        if name.lower().endswith(b".flac"):
+            return _flac_skeleton(f, a)
+        if a:  # MP3 with an ID3v2 tag
+            return _id3_skeleton(f, a)
+    except ValueError:
+        pass
+    f.seek(0)
+    return read_exact(f, a), []
+
+
+def _flac_skeleton(f, a):
+    out, holes, pos = [b"fLaC"], [], 4
+    while pos < a:
+        f.seek(pos)
+        h = read_exact(f, 4)
+        n, kind = int.from_bytes(h[1:], "big"), h[0] & 0x7F
+        body = b"\0" * n if kind == 1 else read_exact(f, min(n, PIC))  # 1: PADDING, zeros by spec
+        if kind == 6 and len(body) >= 32:  # PICTURE: type, mime, description, 4 x u32, data
+            ml = int.from_bytes(body[4:8], "big")
+            dl = int.from_bytes(body[8 + ml:12 + ml], "big")
+            hl = 32 + ml + dl
+            data = int.from_bytes(body[hl - 4:hl], "big") if hl <= len(body) else -1
+            if hl + data == n and data >= PIC:
+                body = _hole(out, holes, h + body[:hl], pos + 4 + hl, data)
+                pos += 4 + n
+                continue
+        if len(body) < n:
+            body += read_exact(f, n - len(body))
+        out += [h, body]
+        pos += 4 + n
+    if pos != a:
+        raise ValueError("FLAC blocks do not end at the audio")
+    return b"".join(out), holes
+
+
+def _id3_skeleton(f, a):
+    f.seek(0)
+    h = read_exact(f, 10)
+    v, flags = h[3], h[5]
+    if v not in (3, 4) or flags & 0xC0:  # v2.2, unsynchronisation, extended header: read it all
+        raise ValueError("ID3 layout not handled")
+    end = 10 + (h[6] << 21 | h[7] << 14 | h[8] << 7 | h[9])
+    out, holes, pos = [h], [], 10
+    while pos + 10 <= end:
+        fh = read_exact(f, 10)
+        if fh[0] == 0:  # padding to the end of the tag; read (small) to prove it: a misread frame
+            pad = fh + read_exact(f, end - pos - 10)  # size would land in picture data instead
+            if pad.strip(b"\0"):
+                raise ValueError("ID3 padding is not zeros")
+            out.append(pad)
+            pos = end
+            break
+        n = int.from_bytes(fh[4:8], "big") if v == 3 else fh[4] << 21 | fh[5] << 14 | fh[6] << 7 | fh[7]
+        body = read_exact(f, min(n, PIC))
+        if fh[:4] == b"APIC" and fh[9] == 0 and len(body) > 4:  # no compression/encryption/unsync
+            enc, m = body[0], body.find(b"\0", 1)
+            d = m + 2  # after the mime's NUL and the picture type
+            if m > 0 and enc in (0, 3):
+                t = body.find(b"\0", d)
+                hl = t + 1 if t >= 0 else -1
+            elif m > 0 and enc in (1, 2):
+                t = next((i for i in range(d, len(body) - 1, 2) if body[i:i + 2] == b"\0\0"), -1)
+                hl = t + 2 if t >= 0 else -1
+            else:
+                hl = -1
+            if 0 < hl and n - hl >= PIC:
+                _hole(out, holes, fh + body[:hl], pos + 10 + hl, n - hl)
+                pos += 10 + n
+                f.seek(pos)
+                continue
+        if len(body) < n:
+            body += read_exact(f, n - len(body))
+        out += [fh, body]
+        pos += 10 + n
+    if pos != end:
+        raise ValueError("ID3 frames do not end at the tag end")
+    f.seek(end)
+    out.append(read_exact(f, a - end))  # a v2.4 footer, if any
+    return b"".join(out), holes
+
+
+def _hole(out, holes, before, offset, n):
+    filler = os.urandom(n)
+    out += [before, filler]
+    holes.append((filler, offset))
+
+
 def _retag(item, f, src, size) -> list[Seg] | None:
     region = audio_region(f, src, size)
     if region is None:
         return None
     a, e = region
     k = min(K, e - a)
-    f.seek(0)
-    old = read_exact(f, a + k)
+    head, holes = _skeleton(f, src, a)
+    f.seek(a)
+    audio = read_exact(f, k)
     with tempfile.NamedTemporaryFile(suffix=os.path.splitext(src)[1].decode("latin-1")) as t:
-        t.write(old)
+        t.write(head + audio)
         t.flush()
-        stub = os.fsencode(t.name)
-        item.write(path=stub)
-        with open(stub, "rb") as g:
+        item.write(path=os.fsencode(t.name))
+        with open(t.name, "rb") as g:
             new = g.read()
-        pics = pictures(stub)
-    if new[-k:] != old[a:]:
+    if new[-k:] != audio:
         raise ValueError("audio moved in stub")
-    head, old = new[:-k], old[:a]
-    cuts = []  # (pos_in_head, pos_in_source, length)
-    for pic in pics:
-        if len(pic) >= 4096 and (h := head.find(pic)) >= 0 and (o := old.find(pic)) >= 0:
-            cuts.append((h, o, len(pic)))
+    head = new[:-k]
+    cuts = []  # (pos_in_head, pos_in_source, length): each placeholder, found exactly once
+    for filler, off in holes:
+        h = head.find(filler)
+        if h < 0 or head.find(filler, h + 1) >= 0:
+            raise ValueError("picture not carried over once")
+        cuts.append((h, off, len(filler)))
     segs, pos = [], 0
     for h, o, n in sorted(cuts):
-        if h < pos:
-            continue  # overlapping/duplicate picture: leave it in the blob
         _blob(segs, head[pos:h])
         segs.append((None, o, n))
         pos = h + n
