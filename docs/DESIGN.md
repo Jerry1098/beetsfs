@@ -37,7 +37,7 @@ Everything runs in one container: beets, driven from its CLI
   served, with its original tags, at the beets path (see Formats).
 - Album art fetched by beets (`fetchart` wants to write into the album
   directory, which is read-only). Art already embedded in the source is kept.
-- Transcoding, ReplayGain analysis writes, multi-library, auth.
+- Transcoding, multi-library, auth.
 
 ## Anti-goals
 
@@ -309,6 +309,10 @@ commented-out consumer service.
   and logs failures to `/tmp/fpcalc-errors.log`.
   That is the one place that reads audio from the sources, several MB per track; drop
   `chroma` from `plugins:` to import without it.
+  `replaygain` (backend `ffmpeg`, the same FFmpeg build's `ffmpeg` program, static) computes
+  track and album gains into beets' database, embedded like any other tag. It decodes every
+  file in full, so it is off at import (`auto: no`): `beet replaygain [query]` on demand;
+  `overwrite: no` skips items that already have gains.
 
 ```sh
 podman compose exec beetsfs beet import /music              # import in place, nothing copied

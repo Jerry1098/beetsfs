@@ -12,8 +12,12 @@ paths:
   default:   $albumartist/$album%aunique{}/$discprefix$track $title
   comp:      $albumartist/$album%aunique{}/$discprefix$track $title
   singleton: $artist/Singles/$title
-plugins: [musicbrainz, chroma, edit, inline, lyrics, beetsfs] # musicbrainz: metadata source; chroma: acoustic fingerprints; edit: `beet edit <query>`; inline: item_fields; lyrics: below
+plugins: [musicbrainz, chroma, edit, inline, lyrics, replaygain, beetsfs] # musicbrainz: metadata source; chroma: acoustic fingerprints; edit: `beet edit <query>`; inline: item_fields; lyrics, replaygain: below
 lyrics:  # stored in beets' database; beetsfs embeds them in the view files (no .lrc files needed)
   sources: [lrclib]  # the source LRCGET uses
   synced: yes        # time-synced LRC lyrics when available
   auto: yes          # fetch during imports; `beet lyrics` for what is already in the library
+replaygain:  # stored in beets' database; beetsfs embeds the gains in the view files
+  backend: ffmpeg  # ebur128
+  auto: no         # decodes every file in full: run `beet replaygain [query]` when you choose
+  overwrite: no    # skip items that already have gains (also those read from the source tags)

@@ -4,9 +4,10 @@ COPY fuse/Cargo.toml fuse/Cargo.lock ./
 COPY fuse/src src
 RUN cargo build --release --locked
 
-# fpcalc for the chroma plugin (acoustic fingerprints), built from source: a minimal FFmpeg
-# (file input, common audio demuxers/decoders, resampling; nothing autodetected) as static
-# libraries, and Chromaprint's fpcalc linked against it with -static, so it runs on distroless.
+# fpcalc for the chroma plugin (acoustic fingerprints) and ffmpeg for the replaygain plugin
+# (ebur128), built from source: a minimal FFmpeg (file input, common audio demuxers/decoders,
+# resampling; nothing autodetected) as static libraries plus its `ffmpeg` program, and
+# Chromaprint's fpcalc linked against it; both -static, so they run on distroless.
 # Sources pinned by sha256: Chromaprint's from its GitHub release, FFmpeg's checked against
 # its release signing key (FCF9 86EA 15E6 E293 A564 4F10 B432 2F04 D676 58D8).
 FROM docker.io/library/ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db AS fpcalc
@@ -23,12 +24,15 @@ RUN curl -fsSL --retry 8 --retry-all-errors -O https://ffmpeg.org/releases/ffmpe
       'd54ada62c16b2db396d3251ec54fc7a58909c163131a1cfcf7fa6407dbc14360  chromaprint-1.6.2.tar.gz' \
     | sha256sum -c
 RUN tar -xf ffmpeg-8.1.3.tar.xz && cd ffmpeg-8.1.3 \
- && ./configure --prefix=/ff --enable-static --disable-shared --disable-programs --disable-doc \
+ && ./configure --prefix=/ff --enable-static --disable-shared --disable-programs --enable-ffmpeg \
+      --extra-ldflags=-static --disable-doc \
       --disable-autodetect --disable-network --disable-x86asm --disable-everything \
       --enable-protocol=file --enable-swresample \
       --enable-demuxer=mp3,flac,ogg,mov,matroska,wav,aac,asf \
       --enable-parser=mpegaudio,flac,aac,vorbis,opus \
       --enable-decoder=mp3,mp3float,flac,vorbis,opus,aac,alac,wmav2,pcm_s16le,pcm_s24le \
+      --enable-filter=ebur128,aresample,aformat,anull,abuffer,abuffersink \
+      --enable-muxer=null --enable-encoder=pcm_s16le \
  && make -j"$(nproc)" && make install
 RUN tar -xf chromaprint-1.6.2.tar.gz && cd chromaprint-1.6.2 \
  && cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=ON -DBUILD_TESTS=OFF \
@@ -36,7 +40,8 @@ RUN tar -xf chromaprint-1.6.2.tar.gz && cd chromaprint-1.6.2 \
       -DCMAKE_EXE_LINKER_FLAGS=-static \
  && cmake --build build -j"$(nproc)" \
  && install -D build/src/cmd/fpcalc /out/fpcalc \
- && ! ldd /out/fpcalc && /out/fpcalc -version
+ && install -D /ff/bin/ffmpeg /out/ffmpeg \
+ && ! ldd /out/fpcalc && /out/fpcalc -version && ! ldd /out/ffmpeg && /out/ffmpeg -version
 
 # Same Debian and Python (3.13) as the distroless stage, so the venv runs there unchanged.
 FROM docker.io/library/debian:13-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS py
@@ -59,6 +64,7 @@ COPY --from=py /venv /venv
 COPY --from=py /extras /
 COPY --from=build /src/target/release/beetsfs /usr/local/bin/beetsfs
 COPY --from=fpcalc /out/fpcalc /usr/bin/fpcalc
+COPY --from=fpcalc /out/ffmpeg /usr/bin/ffmpeg
 COPY docker/config /defaults
 COPY docker/entrypoint.py /entrypoint.py
 # `beet` on PATH is the wrapper that drops all capabilities first

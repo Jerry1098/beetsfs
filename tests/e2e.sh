@@ -115,6 +115,10 @@ t=$(py 'import sys; from mediafile import MediaFile; print(MediaFile(sys.argv[1]
 # acoustic fingerprints: the chroma plugin loads and its fpcalc runs in the image
 box beet fingerprint --help >/dev/null || fail "chroma plugin not loadable"
 box beet lyrics --help >/dev/null || fail "lyrics plugin not loadable"
+# replaygain on demand: ffmpeg's ebur128 in the image, the gain in the database and the view
+box beet replaygain path:/music/tagged.flac >>"$TMP/beet.log" 2>&1 || fail "beet replaygain"
+rg() { py 'import sys; from mediafile import MediaFile; sys.exit(MediaFile(sys.argv[1]).rg_track_gain is None)' "$V/$(vp tagged.flac)"; }
+within 5 rg || fail "no track gain in the view after beet replaygain"
 for f in tagged.mp3 tagged.flac plain.ogg; do
   box fpcalc -length 5 "/music/$f" | grep -q '^FINGERPRINT=' || fail "fpcalc does not fingerprint $f"
 done
