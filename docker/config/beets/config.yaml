@@ -1,5 +1,6 @@
 directory: /beetsfs/music  # where the view is; only used to compute relative paths
 library: /config/beets/library.db
+timeout: 30  # seconds to wait for the library lock (default 5): e.g. `beet import` next to a long `beet replaygain`
 import:
   copy: no
   move: no
@@ -19,5 +20,5 @@ lyrics:  # stored in beets' database; beetsfs embeds them in the view files (no 
   auto: yes          # fetch during imports; `beet lyrics` for what is already in the library
 replaygain:  # stored in beets' database; beetsfs embeds the gains in the view files
   backend: ffmpeg  # ebur128
-  auto: no         # decodes every file in full: run `beet replaygain [query]` when you choose
+  auto: yes        # computed during imports (decodes every file in full); `beet replaygain [query]` for what is already in the library
   overwrite: no    # skip items that already have gains (also those read from the source tags)
