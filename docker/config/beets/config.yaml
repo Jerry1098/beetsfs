@@ -12,7 +12,7 @@ paths:
   default:   $albumartist/$album%aunique{}/$discprefix$track $title
   comp:      $albumartist/$album%aunique{}/$discprefix$track $title
   singleton: $artist/Singles/$title
-plugins: [musicbrainz, chroma, edit, inline, lyrics, replaygain, beetsfs] # musicbrainz: metadata source; chroma: acoustic fingerprints; edit: `beet edit <query>`; inline: item_fields; lyrics, replaygain: below
+plugins: [musicbrainz, chroma, edit, inline, lyrics, replaygain, fromfilename, beetsfs] # musicbrainz: metadata source; chroma: acoustic fingerprints; edit: `beet edit <query>`; inline: item_fields; lyrics, replaygain: below
 lyrics:  # stored in beets' database; beetsfs embeds them in the view files (no .lrc files needed)
   sources: [lrclib]  # the source LRCGET uses
   synced: yes        # time-synced LRC lyrics when available
